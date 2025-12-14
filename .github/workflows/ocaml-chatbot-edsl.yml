@@ -23,7 +23,7 @@ jobs:
       - name: Install OCaml tools and libraries
         run: |
           opam update
-          opam install -y dune ocamlformat.0.27.0 lwt yojson cohttp-lwt-unix
+          opam install -y dune ocamlformat.0.27.0 lwt yojson cohttp-lwt-unix alcotest
 
       # Find project dir robustly (avoids duplicated paths)
       - name: Locate Lab4 project directory
