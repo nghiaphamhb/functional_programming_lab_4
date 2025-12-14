@@ -61,25 +61,70 @@ let find_first_matching_rule (rules : rule list) (text : string) : rule option =
   List.find_opt (fun r -> matches r.pattern text) rules
 
 (* Execute actions in an immutable way *)
-let exec_actions (current_state : string) (text : string)
+let exec_actions (current_state : string) (text_raw : string)
     (actions : action list) : string * string list =
   List.fold_left
     (fun (st, replies_rev) act ->
       match act with
-      | Say f -> (st, f text :: replies_rev)
+      | Say f -> (st, f text_raw :: replies_rev)
       | Goto s -> (s, replies_rev))
     (current_state, []) actions
+(* ===== Core utils ===== *)
 
-let interpret (b : bot) (current_state : string) (text : string) :
+let string_trim (s : string) : string =
+  let is_space = function ' ' | '\t' | '\n' | '\r' -> true | _ -> false in
+  let n = String.length s in
+  let rec left i = if i < n && is_space s.[i] then left (i + 1) else i in
+  let rec right i = if i >= 0 && is_space s.[i] then right (i - 1) else i in
+  let l = left 0 in
+  let r = right (n - 1) in
+  if r < l then "" else String.sub s l (r - l + 1)
+
+let unicode_lower (s : string) : string =
+  let buf = Buffer.create (String.length s) in
+  let add_uchar (u : Uchar.t) = Uutf.Buffer.add_utf_8 buf u in
+
+  let add_mapping (u : Uchar.t) =
+    match Uucp.Case.Map.to_lower u with
+    | `Self -> add_uchar u
+    | `Uchars us -> List.iter add_uchar us
+  in
+
+  let dec = Uutf.decoder (`String s) in
+  let rec loop () =
+    match Uutf.decode dec with
+    | `Uchar u ->
+        add_mapping u;
+        loop ()
+    | `End -> ()
+    | `Malformed _ ->
+        (* Replacement character for malformed UTF-8 *)
+        add_uchar Uutf.u_rep;
+        loop ()
+    | `Await -> ()
+  in
+  loop ();
+  Buffer.contents buf
+
+(* Apply to command matching only (safe) *)
+let normalize_for_command (s : string) : string =
+  (* lowercasing is ASCII-only; safe for Latin aliases, numbers, operators *)
+  s |> string_trim |> unicode_lower
+
+let interpret (b : bot) (current_state : string) (text_raw : string) :
     string * string =
+  (* Only for rule matching *)
+  let text_cmd = normalize_for_command text_raw in
+
   match find_state b current_state with
   | None -> (b.initial_state, "Internal error: unknown state, resetting.")
   | Some st -> (
-      match find_first_matching_rule st.rules text with
+      match find_first_matching_rule st.rules text_cmd with
       | None -> (current_state, "Internal error: no rule matched.")
       | Some r ->
+          (* IMPORTANT: pass raw text into Say f, so names keep original case *)
           let next_state, replies_rev =
-            exec_actions current_state text r.actions
+            exec_actions current_state text_raw r.actions
           in
           let replies = List.rev replies_rev in
           let reply_text =
