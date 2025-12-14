@@ -1,2 +1,5 @@
 (library
- (name ocaml_chatbot_edsl))
+ (name ocaml_chatbot_edsl)
+ (wrapped false)
+ (modules ocaml_chatbot_edsl telegram)
+ (libraries lwt yojson cohttp-lwt-unix))
