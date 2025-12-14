@@ -1,0 +1,73 @@
+name: OCaml CI - Lab4 Chatbot eDSL
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) Checkout
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2) Setup OCaml + dune cache
+      - name: Setup OCaml environment
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: '4.14.0'
+          dune-cache: true
+
+      # 3) Install dependencies
+      - name: Install OCaml tools and libraries
+        run: |
+          opam update
+          opam install -y dune ocamlformat.0.27.0 lwt yojson cohttp-lwt-unix
+
+      # 4) Build
+      - name: Build (dev profile)
+        working-directory: functional_programming_lab_4/ocaml-chatbot-edsl
+        run: |
+          eval $(opam env)
+          echo "Building project..."
+          dune build --profile dev
+
+      # 5) Format check (only files inside Lab4 folder)
+      - name: Format check
+        run: |
+          eval $(opam env)
+          echo "Checking code formatting..."
+          ocamlformat --version
+
+          # Limit format check to the lab4 project directory
+          files="$(git ls-files \
+            'functional_programming_lab_4/ocaml-chatbot-edsl/**/*.ml' \
+            'functional_programming_lab_4/ocaml-chatbot-edsl/**/*.mli' \
+            'functional_programming_lab_4/ocaml-chatbot-edsl/*.ml' \
+            'functional_programming_lab_4/ocaml-chatbot-edsl/*.mli')"
+
+          if [ -z "$files" ]; then
+            echo "No OCaml files to format."
+            exit 0
+          fi
+
+          failed=0
+          for f in $files; do
+            if ! ocamlformat --check "$f"; then
+              echo "Not formatted: $f"
+              failed=1
+            fi
+          done
+          exit $failed
+
+      # 6) Run tests (safe even if there are no tests)
+      - name: Run tests
+        working-directory: functional_programming_lab_4/ocaml-chatbot-edsl
+        run: |
+          eval $(opam env)
+          echo "Running tests..."
+          dune runtest
