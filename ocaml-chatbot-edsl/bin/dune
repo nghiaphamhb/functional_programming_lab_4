@@ -1,0 +1,4 @@
+(executable
+ (public_name ocaml-chatbot-edsl)
+ (name main)
+ (libraries ocaml_chatbot_edsl))
