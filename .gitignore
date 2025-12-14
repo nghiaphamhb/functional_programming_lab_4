@@ -1,0 +1,20 @@
+# Build artifacts
+_build/
+*.cmx
+*.cmi
+*.cmo
+*.o
+*.exe
+*.out
+*.byte
+
+# Editor files
+*.swp
+*.swo
+*.idea/
+*.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+oa_set/oa_set.opam
