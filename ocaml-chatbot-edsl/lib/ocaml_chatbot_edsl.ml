@@ -206,6 +206,8 @@ let example_bot =
         ];
       state "ask_name"
         [
+          rule (Exact "привет")
+            [ say "Ок, начнём сначала. Как тебя зовут?"; goto "ask_name" ];
           rule Any
             [
               sayf (fun name -> "Приятно познакомиться, " ^ name ^ "!");
@@ -215,6 +217,8 @@ let example_bot =
         ];
       state "main"
         [
+          rule (Exact "привет")
+            [ say "Ок, начнём сначала. Как тебя зовут?"; goto "ask_name" ];
           rule (Exact "помоги")
             [
               say
