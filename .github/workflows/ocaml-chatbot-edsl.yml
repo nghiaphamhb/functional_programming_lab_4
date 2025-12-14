@@ -11,45 +11,59 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1) Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2) Setup OCaml + dune cache
       - name: Setup OCaml environment
         uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: '4.14.0'
           dune-cache: true
 
-      # 3) Install dependencies
       - name: Install OCaml tools and libraries
         run: |
           opam update
-          opam install -y dune ocamlformat.0.27.0 lwt yojson cohttp-lwt-unix
+          opam install -y dune ocamlformat.0.27.0 lwt yojson cohttp-lwt-unix alcotest
 
-      # 4) Build
+      # Find project dir robustly (avoids duplicated paths)
+      - name: Locate Lab4 project directory
+        shell: bash
+        run: |
+          set -e
+          echo "Repo root:"
+          pwd
+          echo "Top-level listing:"
+          ls -la
+
+          # Find a dune-project under a directory containing "ocaml-chatbot-edsl"
+          DUNE_PROJECT="$(find . -maxdepth 6 -type f -name dune-project -path '*ocaml-chatbot-edsl*' | head -n 1)"
+          if [ -z "$DUNE_PROJECT" ]; then
+            echo "ERROR: Cannot find dune-project for ocaml-chatbot-edsl."
+            echo "Hint: check repository structure."
+            exit 1
+          fi
+
+          PROJECT_DIR="$(dirname "$DUNE_PROJECT")"
+          echo "Found PROJECT_DIR=$PROJECT_DIR"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
       - name: Build (dev profile)
-        working-directory: functional_programming_lab_4/ocaml-chatbot-edsl
+        shell: bash
         run: |
           eval $(opam env)
-          echo "Building project..."
+          cd "$PROJECT_DIR"
+          echo "Building in $(pwd)..."
           dune build --profile dev
 
-      # 5) Format check (only files inside Lab4 folder)
       - name: Format check
+        shell: bash
         run: |
           eval $(opam env)
           echo "Checking code formatting..."
           ocamlformat --version
 
-          # Limit format check to the lab4 project directory
-          files="$(git ls-files \
-            'functional_programming_lab_4/ocaml-chatbot-edsl/**/*.ml' \
-            'functional_programming_lab_4/ocaml-chatbot-edsl/**/*.mli' \
-            'functional_programming_lab_4/ocaml-chatbot-edsl/*.ml' \
-            'functional_programming_lab_4/ocaml-chatbot-edsl/*.mli')"
-
+          # Only check files inside the project directory we found
+          files="$(git ls-files "$PROJECT_DIR/**/*.ml" "$PROJECT_DIR/**/*.mli" "$PROJECT_DIR/*.ml" "$PROJECT_DIR/*.mli")"
           if [ -z "$files" ]; then
             echo "No OCaml files to format."
             exit 0
@@ -64,10 +78,10 @@ jobs:
           done
           exit $failed
 
-      # 6) Run tests (safe even if there are no tests)
       - name: Run tests
-        working-directory: functional_programming_lab_4/ocaml-chatbot-edsl
+        shell: bash
         run: |
           eval $(opam env)
-          echo "Running tests..."
+          cd "$PROJECT_DIR"
+          echo "Running tests in $(pwd)..."
           dune runtest

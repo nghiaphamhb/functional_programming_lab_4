@@ -2,11 +2,11 @@ open Alcotest
 open Ocaml_chatbot_edsl
 
 let check_interpret ~state ~input ~exp_state ~exp_substr =
-  let (st', reply) = interpret example_bot state input in
+  let st', reply = interpret example_bot state input in
   check string "next state" exp_state st';
-  check bool "reply contains"
-    true
-    (String.length exp_substr = 0 || String.contains reply exp_substr.[0] && String.length reply >= 0);
+  check bool "reply contains" true
+    (String.length exp_substr = 0
+    || (String.contains reply exp_substr.[0] && String.length reply >= 0));
   (* safer substring check *)
   let has_sub =
     let lt = String.length reply and ls = String.length exp_substr in
@@ -20,18 +20,14 @@ let check_interpret ~state ~input ~exp_state ~exp_substr =
   check bool "reply has substring" true has_sub
 
 let test_start_hello () =
-  check_interpret
-    ~state:"start"
-    ~input:"привет"
-    ~exp_state:"ask_name"
+  check_interpret ~state:"start" ~input:"привет" ~exp_state:"ask_name"
     ~exp_substr:"Как тебя зовут"
 
 let test_name_flow () =
-  let (st1, _) = interpret example_bot "start" "привет" in
-  let (st2, reply2) = interpret example_bot st1 "Нгиа" in
+  let st1, _ = interpret example_bot "start" "привет" in
+  let st2, reply2 = interpret example_bot st1 "Нгиа" in
   check string "state after name" "main" st2;
-  check bool "name preserved"
-    true
+  check bool "name preserved" true
     (let ls = String.length "Нгиа" in
      let lt = String.length reply2 in
      let rec loop i =
@@ -44,8 +40,9 @@ let test_name_flow () =
 let () =
   run "chatbot"
     [
-      ("fsm", [
+      ( "fsm",
+        [
           test_case "start: привет -> ask_name" `Quick test_start_hello;
           test_case "ask_name keeps raw name" `Quick test_name_flow;
-        ]);
+        ] );
     ]
