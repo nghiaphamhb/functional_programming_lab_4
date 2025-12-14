@@ -4,32 +4,34 @@ open Ocaml_chatbot_edsl
 (* Immutable state store: association list chat_id -> state_name *)
 type chat_states = (int * string) list
 
-let get_state (states : chat_states) (chat_id : int) (default : string) : string =
-  match List.assoc_opt chat_id states with
-  | Some s -> s
-  | None -> default
+let get_state (states : chat_states) (chat_id : int) (default : string) : string
+    =
+  match List.assoc_opt chat_id states with Some s -> s | None -> default
 
-let set_state (states : chat_states) (chat_id : int) (state : string) : chat_states =
+let set_state (states : chat_states) (chat_id : int) (state : string) :
+    chat_states =
   (chat_id, state) :: List.remove_assoc chat_id states
 
 let handle_update bot states (u : Telegram.update) =
   let current = get_state states u.chat_id bot.initial_state in
-  let (next_state, reply) = interpret bot current u.text in
+  let next_state, reply = interpret bot current u.text in
   let states' = set_state states u.chat_id next_state in
   (states', reply)
 
 let rec loop ~token ~offset bot states =
   Telegram.get_updates ~token ~offset >>= fun updates ->
   match updates with
-  | [] ->
-      loop ~token ~offset bot states
+  | [] -> loop ~token ~offset bot states
   | _ ->
       let new_offset =
-        (List.fold_left (fun mx (u : Telegram.update) -> max mx u.update_id) offset updates) + 1
+        List.fold_left
+          (fun mx (u : Telegram.update) -> max mx u.update_id)
+          offset updates
+        + 1
       in
       (* process updates sequentially, keep immutable state *)
       let process_one (st : chat_states) (u : Telegram.update) =
-        let (st', reply) = handle_update bot st u in
+        let st', reply = handle_update bot st u in
         Telegram.send_message ~token ~chat_id:u.chat_id ~text:reply
         >|= fun () -> st'
       in

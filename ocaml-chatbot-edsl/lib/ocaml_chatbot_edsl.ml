@@ -1,84 +1,60 @@
 (* Pattern to match user input *)
-type pattern =
-  | Exact of string
-  | Contains of string
-  | Any
+type pattern = Exact of string | Contains of string | Any
 
-  (* Action performed by the bot *)
+(* Action performed by the bot *)
 type action =
-  | Say of (string -> string)  (* builds reply using user message *)
+  | Say of (string -> string) (* builds reply using user message *)
   | Goto of string
 
 (* Rule: pattern + list of actions *)
-type rule = {
-  pattern : pattern;
-  actions : action list;
-}
+type rule = { pattern : pattern; actions : action list }
 
 (* State of chatbot *)
-type state = {
-  name : string;
-  rules : rule list;
-}
+type state = { name : string; rules : rule list }
 
 (* Chatbot definition *)
-type bot = {
-  initial_state : string;
-  states : state list;
-}
+type bot = { initial_state : string; states : state list }
 
-(**  DSL helpers : giúp DSL đọc giống ngôn ngữ khai báo *)
-let rule pattern actions =
-  { pattern; actions }
+(** DSL helpers : giúp DSL đọc giống ngôn ngữ khai báo *)
+let rule pattern actions = { pattern; actions }
 
-let state name rules =
-  { name; rules }
+let state name rules = { name; rules }
+let chatbot initial_state states = { initial_state; states }
 
-let chatbot initial_state states =
-  { initial_state; states }
-
-  (* trả lời cố định (không phụ thuộc tin nhắn người dùng) *)
+(* trả lời cố định (không phụ thuộc tin nhắn người dùng) *)
 let say text = Say (fun _ -> text)
+
 (* trả lời động (có dùng nội dung user vừa nhập) *)
 let sayf f = Say f
-
 let goto state_name = Goto state_name
 
 (* ===== Example chatbot definition ===== *)
 
 let example_bot =
-  chatbot "start" [
-    state "start" [
-      rule (Exact "привет") [
-        say "Здравствуйте! Как вас зовут?";
-        goto "ask_name";
-      ];
-      rule Any [
-        say "Напишите 'привет', чтобы начать.";
-      ];
-    ];
-
-    state "ask_name" [
-      rule Any [
-        sayf (fun name -> "Приятно познакомиться, " ^ name ^ "!");
-        say "Напишите 'help' для списка команд.";
-        goto "main";
-      ];
-    ];
-
-    state "main" [
-      rule (Exact "help") [
-        say "Команды: help, bye";
-      ];
-      rule (Exact "bye") [
-        say "Пока! Возвращайтесь :)";
-        goto "start";
-      ];
-      rule Any [
-        say "Я понимаю только help или bye.";
-      ];
-    ];
-  ]
+  chatbot "start"
+    [
+      state "start"
+        [
+          rule (Exact "привет")
+            [ say "Здравствуйте! Как вас зовут?"; goto "ask_name" ];
+          rule Any [ say "Напишите 'привет', чтобы начать." ];
+        ];
+      state "ask_name"
+        [
+          rule Any
+            [
+              sayf (fun name -> "Приятно познакомиться, " ^ name ^ "!");
+              say "Напишите 'help' для списка команд.";
+              goto "main";
+            ];
+        ];
+      state "main"
+        [
+          rule (Exact "help") [ say "Команды: help, bye" ];
+          rule (Exact "bye") [ say "Пока! Возвращайтесь :)"; goto "start" ];
+          rule Any [ say "Я понимаю только help или bye." ];
+        ];
+    ]
 
 (* ===== Step 3: Interpreter ===== *)
 
@@ -106,33 +82,28 @@ let find_first_matching_rule (rules : rule list) (text : string) : rule option =
   List.find_opt (fun r -> matches r.pattern text) rules
 
 (* Execute actions in an immutable way *)
-let exec_actions (current_state : string) (text : string) (actions : action list)
-  : (string * string list) =
+let exec_actions (current_state : string) (text : string)
+    (actions : action list) : string * string list =
   List.fold_left
     (fun (st, replies_rev) act ->
       match act with
       | Say f -> (st, f text :: replies_rev)
       | Goto s -> (s, replies_rev))
-    (current_state, [])
-    actions
+    (current_state, []) actions
 
-let interpret (b : bot) (current_state : string) (text : string)
-  : (string * string) =
+let interpret (b : bot) (current_state : string) (text : string) :
+    string * string =
   match find_state b current_state with
-  | None ->
-      (b.initial_state, "Internal error: unknown state, resetting.")
+  | None -> (b.initial_state, "Internal error: unknown state, resetting.")
   | Some st -> (
       match find_first_matching_rule st.rules text with
-      | None ->
-          (current_state, "Internal error: no rule matched.")
+      | None -> (current_state, "Internal error: no rule matched.")
       | Some r ->
-          let (next_state, replies_rev) = exec_actions current_state text r.actions in
+          let next_state, replies_rev =
+            exec_actions current_state text r.actions
+          in
           let replies = List.rev replies_rev in
           let reply_text =
-            match replies with
-            | [] -> ""
-            | xs -> String.concat "\n" xs
+            match replies with [] -> "" | xs -> String.concat "\n" xs
           in
-          (next_state, reply_text)
-    )
-
+          (next_state, reply_text))
