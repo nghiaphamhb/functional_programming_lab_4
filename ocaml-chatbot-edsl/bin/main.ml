@@ -4,20 +4,24 @@ open Ocaml_chatbot_edsl
 (* Immutable state store: association list chat_id -> state_name *)
 type chat_states = (int * string) list
 
+(* Get the current chat status; If the chat is new, starts from the initial state*)
 let get_state (states : chat_states) (chat_id : int) (default : string) : string
     =
   match List.assoc_opt chat_id states with Some s -> s | None -> default
 
+(* update/set the state (immutable) *)
 let set_state (states : chat_states) (chat_id : int) (state : string) :
     chat_states =
   (chat_id, state) :: List.remove_assoc chat_id states
 
+(* handle update (per one user's message) *)
 let handle_update bot states (u : Telegram.update) =
   let current = get_state states u.chat_id bot.initial_state in
   let next_state, reply = interpret bot current u.text in
   let states' = set_state states u.chat_id next_state in
   (states', reply)
 
+(* ==== long polling ==== *)
 let rec loop ~token ~offset bot states =
   Telegram.get_updates ~token ~offset >>= fun updates ->
   match updates with
@@ -38,6 +42,7 @@ let rec loop ~token ~offset bot states =
       Lwt_list.fold_left_s process_one states updates >>= fun states' ->
       loop ~token ~offset:new_offset bot states'
 
+(* ==== run the long polling loop ==== *)
 let () =
   let token =
     match Sys.getenv_opt "TELEGRAM_BOT_TOKEN" with
@@ -47,4 +52,4 @@ let () =
         exit 1
   in
   print_endline "Telegram bot started (long polling)...";
-  Lwt_main.run (loop ~token ~offset:0 example_bot [])
+  Lwt_main.run (loop ~token ~offset:0 my_bot [])
