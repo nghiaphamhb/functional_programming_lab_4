@@ -93,10 +93,13 @@ let handle_calc_command (text : string) : string option =
         (String.length text - String.length prefix)
     in
     match eval_simple_expr expr with
-    | Ok v -> Some ("The answer is: " ^ string_of_int v)
+    | Ok v -> Some ("The answer is: " ^ string_of_int v ^ "\n-----\n(づ｡◕‿‿◕｡)づ")
     | Error Division_by_zero -> Some "Error: division by zero"
     | Error Parse_error ->
-        Some "I can't make out the expression. Example: calc 10 + 5"
+        Some
+          "I can't make out the expression. Let try again. Example: calc 10 + 5\n\
+           -----\n\
+          \ (•ㅅ•)ノ"
 
 (* ===== Interpreter's functions ===== *)
 (* check if a "pattern" matches the text message *)
@@ -212,10 +215,7 @@ let my_bot =
                  and executed by an interpreter.\n\
                  Integration: Telegram Bot API\n\
                  -----------------------------\n\
-                 (≧◡≦) ♡\n\
-                 /| |\\\n\
-                 | |\n\
-                 /   \\\n";
+                 (≧◡≦) ♡";
             ];
           rule (Exact "author")
             [
