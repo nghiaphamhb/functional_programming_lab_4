@@ -162,28 +162,6 @@ let interpret (b : bot) (current_state : string) (text_raw : string) :
           (next_state, reply_text))
 ```
 
-#### Интерпретер для работы чат-бота
-```ocaml
-(* ===== Interpreter ===== *)
-let interpret (b : bot) (current_state : string) (text_raw : string) :
-    string * string =
-  let text_cmd = normalize_for_command text_raw in
-
-  match find_state b current_state with
-  | None -> (b.initial_state, "Internal error: unknown state, resetting.")
-  | Some st -> (
-      match find_first_matching_rule st.rules text_cmd with
-      | None -> (current_state, "Internal error: no rule matched.")
-      | Some r ->
-          let next_state, replies_rev =
-            exec_actions current_state text_raw r.actions
-          in
-          let replies = List.rev replies_rev in
-          let reply_text =
-            match replies with [] -> "" | xs -> String.concat "\n" xs
-          in
-          (next_state, reply_text))
-```
 #### Интеграция с telegram
 ```ocaml
 (* ==== Adapter's general actions ==== *)
@@ -202,7 +180,7 @@ let send_message ~token ~chat_id ~text =
   http_post_form url params >|= fun _ -> ()
 ```
 
-### Как запустить?
+## Как запустить?
 
 ```bash
 export TELEGRAM_BOT_TOKEN="..."
